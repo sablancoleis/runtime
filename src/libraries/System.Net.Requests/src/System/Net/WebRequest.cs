@@ -376,7 +376,19 @@ namespace System.Net
 
         public virtual RequestCachePolicy? CachePolicy { get; set; }
 
-        public AuthenticationLevel AuthenticationLevel { get; set; } = AuthenticationLevel.MutualAuthRequested;
+        public AuthenticationLevel AuthenticationLevel
+        {
+            get => field;
+            set
+            {
+                if (value is not (AuthenticationLevel.None or AuthenticationLevel.MutualAuthRequested or AuthenticationLevel.MutualAuthRequired))
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value));
+                }
+
+                field = value;
+            }
+        } = AuthenticationLevel.MutualAuthRequested;
 
         public TokenImpersonationLevel ImpersonationLevel { get; set; } = TokenImpersonationLevel.None;
 

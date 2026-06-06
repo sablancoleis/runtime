@@ -146,6 +146,11 @@ namespace System.Net.Mail
             }
             set
             {
+                if (value is not (MailPriority.Normal or MailPriority.Low or MailPriority.High))
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value));
+                }
+
                 _message.Priority = value;
             }
         }
@@ -257,6 +262,13 @@ namespace System.Net.Mail
             }
             set
             {
+                if (value is not (TransferEncoding.QuotedPrintable or TransferEncoding.Base64 or
+                                  TransferEncoding.SevenBit or TransferEncoding.EightBit or
+                                  TransferEncoding.Unknown))
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value));
+                }
+
                 _bodyTransferEncoding = value;
             }
         }

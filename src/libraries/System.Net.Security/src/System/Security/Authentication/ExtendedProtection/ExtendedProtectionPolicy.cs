@@ -28,6 +28,14 @@ namespace System.Security.Authentication.ExtendedProtection
             {
                 throw new ArgumentException(SR.security_ExtendedProtectionPolicy_UseDifferentConstructorForNever, nameof(policyEnforcement));
             }
+            if (policyEnforcement is not (PolicyEnforcement.WhenSupported or PolicyEnforcement.Always))
+            {
+                throw new ArgumentException(SR.Format(SR.net_invalid_enum, nameof(PolicyEnforcement)), nameof(policyEnforcement));
+            }
+            if (protectionScenario is not (ProtectionScenario.TransportSelected or ProtectionScenario.TrustedProxy))
+            {
+                throw new ArgumentException(SR.Format(SR.net_invalid_enum, nameof(ProtectionScenario)), nameof(protectionScenario));
+            }
 
             if (customServiceNames != null && customServiceNames.Count == 0)
             {
@@ -54,6 +62,10 @@ namespace System.Security.Authentication.ExtendedProtection
             {
                 throw new ArgumentException(SR.security_ExtendedProtectionPolicy_UseDifferentConstructorForNever, nameof(policyEnforcement));
             }
+            if (policyEnforcement is not (PolicyEnforcement.WhenSupported or PolicyEnforcement.Always))
+            {
+                throw new ArgumentException(SR.Format(SR.net_invalid_enum, nameof(PolicyEnforcement)), nameof(policyEnforcement));
+            }
             ArgumentNullException.ThrowIfNull(customChannelBinding);
 
             _policyEnforcement = policyEnforcement;
@@ -64,6 +76,11 @@ namespace System.Security.Authentication.ExtendedProtection
         public ExtendedProtectionPolicy(PolicyEnforcement policyEnforcement)
         {
             // This is the only constructor which allows PolicyEnforcement.Never.
+            if (policyEnforcement is not (PolicyEnforcement.Never or PolicyEnforcement.WhenSupported or PolicyEnforcement.Always))
+            {
+                throw new ArgumentException(SR.Format(SR.net_invalid_enum, nameof(PolicyEnforcement)), nameof(policyEnforcement));
+            }
+
             _policyEnforcement = policyEnforcement;
             _protectionScenario = ProtectionScenario.TransportSelected;
         }

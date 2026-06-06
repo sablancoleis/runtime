@@ -357,6 +357,11 @@ namespace System.Net.Http
             get => _settings._keepAlivePingPolicy;
             set
             {
+                if (value is not (HttpKeepAlivePingPolicy.Always or HttpKeepAlivePingPolicy.WithActiveRequests))
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value));
+                }
+
                 CheckDisposedOrStarted();
                 _settings._keepAlivePingPolicy = value;
             }

@@ -648,6 +648,11 @@ namespace System.Net.Security
             ArgumentNullException.ThrowIfNull(credential);
             ArgumentNullException.ThrowIfNull(servicePrincipalName);
 
+            if (protectionLevel is not (ProtectionLevel.None or ProtectionLevel.Sign or ProtectionLevel.EncryptAndSign))
+            {
+                throw new ArgumentOutOfRangeException(nameof(protectionLevel), protectionLevel.ToString(), SR.Format(SR.net_invalid_enum, nameof(ProtectionLevel)));
+            }
+
             if (impersonationLevel != TokenImpersonationLevel.Identification &&
                 impersonationLevel != TokenImpersonationLevel.Impersonation &&
                 impersonationLevel != TokenImpersonationLevel.Delegation)

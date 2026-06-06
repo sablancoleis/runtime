@@ -65,7 +65,19 @@ namespace System.Net.Security
         /// Indicates the required level of protection of the authentication exchange
         /// and any further data exchange. Default value is None.
         /// </summary>
-        public ProtectionLevel RequiredProtectionLevel { get; set; } = ProtectionLevel.None;
+        public ProtectionLevel RequiredProtectionLevel
+        {
+            get => field;
+            set
+            {
+                if (value is not (ProtectionLevel.None or ProtectionLevel.Sign or ProtectionLevel.EncryptAndSign))
+                {
+                    throw new ArgumentException(SR.Format(SR.net_invalid_enum, nameof(ProtectionLevel)), nameof(value));
+                }
+
+                field = value;
+            }
+        } = ProtectionLevel.None;
 
         /// <summary>
         /// Indicates that mutual authentication is required between the client and server.

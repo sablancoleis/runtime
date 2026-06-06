@@ -473,6 +473,7 @@ namespace System.Net.Http
         public HttpResponseMessage Send(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationToken cancellationToken)
         {
             CheckRequestBeforeSend(request);
+            CheckCompletionOption(completionOption);
             (CancellationTokenSource cts, bool disposeCts, CancellationTokenSource pendingRequestsCts) = PrepareCancellationTokenSource(cancellationToken);
 
             bool telemetryStarted = StartSend(request);
@@ -522,6 +523,7 @@ namespace System.Net.Http
         {
             // Called outside of async state machine to propagate certain exception even without awaiting the returned task.
             CheckRequestBeforeSend(request);
+            CheckCompletionOption(completionOption);
             (CancellationTokenSource cts, bool disposeCts, CancellationTokenSource pendingRequestsCts) = PrepareCancellationTokenSource(cancellationToken);
 
             return Core(request, completionOption, cts, disposeCts, pendingRequestsCts, cancellationToken);
@@ -576,6 +578,14 @@ namespace System.Net.Http
 
             // PrepareRequestMessage will resolve the request address against the base address.
             PrepareRequestMessage(request);
+        }
+
+        private static void CheckCompletionOption(HttpCompletionOption completionOption)
+        {
+            if (completionOption is not (HttpCompletionOption.ResponseContentRead or HttpCompletionOption.ResponseHeadersRead))
+            {
+                throw new ArgumentOutOfRangeException(nameof(completionOption));
+            }
         }
 
         private static void ThrowForNullResponse([NotNull] HttpResponseMessage? response)

@@ -2317,6 +2317,11 @@ namespace System.Net.Sockets
                 throw new ArgumentException(SR.net_sockets_invalid_optionValue_all, nameof(level));
             }
 
+            if (level is not (IPProtectionLevel.Unrestricted or IPProtectionLevel.EdgeRestricted or IPProtectionLevel.Restricted))
+            {
+                throw new ArgumentOutOfRangeException(nameof(level));
+            }
+
             if (_addressFamily == AddressFamily.InterNetworkV6)
             {
                 SocketPal.SetIPProtectionLevel(this, SocketOptionLevel.IPv6, (int)level);
@@ -2348,6 +2353,11 @@ namespace System.Net.Sockets
         /// <exception cref="ObjectDisposedException">The <see cref="Socket"/> has been closed.</exception>
         public bool Poll(int microSeconds, SelectMode mode)
         {
+            if (mode is not (SelectMode.SelectRead or SelectMode.SelectWrite or SelectMode.SelectError))
+            {
+                throw new ArgumentOutOfRangeException(nameof(mode));
+            }
+
             if (!Socket.OSSupportsThreads) throw new PlatformNotSupportedException(); // TODO remove with https://github.com/dotnet/runtime/pull/107185
 
             ThrowIfDisposed();
@@ -2813,6 +2823,11 @@ namespace System.Net.Sockets
         // Disables sends and receives on a socket.
         public void Shutdown(SocketShutdown how)
         {
+            if (how is not (SocketShutdown.Receive or SocketShutdown.Send or SocketShutdown.Both))
+            {
+                throw new ArgumentOutOfRangeException(nameof(how));
+            }
+
             ThrowIfDisposed();
 
             if (NetEventSource.Log.IsEnabled()) NetEventSource.Info(this, $"how:{how}");

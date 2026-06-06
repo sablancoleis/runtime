@@ -250,6 +250,13 @@ namespace System.Net.Mail
             }
             set
             {
+                if (value is not (TransferEncoding.QuotedPrintable or TransferEncoding.Base64 or
+                                  TransferEncoding.SevenBit or TransferEncoding.EightBit or
+                                  TransferEncoding.Unknown))
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value));
+                }
+
                 _part.TransferEncoding = value;
             }
         }

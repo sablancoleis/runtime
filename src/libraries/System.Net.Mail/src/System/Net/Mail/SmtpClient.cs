@@ -277,6 +277,11 @@ namespace System.Net.Mail
             }
             set
             {
+                if (value is not (SmtpDeliveryMethod.Network or SmtpDeliveryMethod.SpecifiedPickupDirectory or SmtpDeliveryMethod.PickupDirectoryFromIis))
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value));
+                }
+
                 _deliveryMethod = value;
             }
         }
@@ -289,6 +294,11 @@ namespace System.Net.Mail
             }
             set
             {
+                if (value is not (SmtpDeliveryFormat.SevenBit or SmtpDeliveryFormat.International))
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value));
+                }
+
                 _deliveryFormat = value;
             }
         }

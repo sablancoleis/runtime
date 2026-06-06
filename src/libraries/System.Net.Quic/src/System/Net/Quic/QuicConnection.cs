@@ -520,6 +520,11 @@ public sealed partial class QuicConnection : IAsyncDisposable
     /// <returns>An asynchronous task that completes with the opened <see cref="QuicStream" />.</returns>
     public async ValueTask<QuicStream> OpenOutboundStreamAsync(QuicStreamType type, CancellationToken cancellationToken = default)
     {
+        if (type is not (QuicStreamType.Unidirectional or QuicStreamType.Bidirectional))
+        {
+            throw new ArgumentOutOfRangeException(nameof(type));
+        }
+
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         QuicStream? stream = null;
