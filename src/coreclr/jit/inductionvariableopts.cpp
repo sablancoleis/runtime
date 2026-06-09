@@ -433,8 +433,8 @@ void PerLoopInfo::Invalidate(FlowGraphNaturalLoop* loop)
 //   sense that all their predecessors must come from inside the loop. Loop
 //   exit canonicalization guarantees this for regular exit blocks. It is not
 //   guaranteed for exceptional exits, but we do not expect to widen IVs that
-//   are live into exceptional exits since those are marked DNER which makes it
-//   unprofitable anyway.
+//   are live into exceptional exits since those are not register candidates
+//   (see optWidenPrimaryIV) which makes it unprofitable anyway.
 //
 //   Note that there may be natural loops that have not had their regular exits
 //   canonicalized at the time when IV opts run, in particular if RBO/assertion
@@ -1328,15 +1328,18 @@ bool Compiler::optLocalHasNonLoopUses(unsigned lclNum, FlowGraphNaturalLoop* loo
         return true;
     }
 
-    if (varDsc->lvDoNotEnregister)
-    {
-        // This filters out locals that may be live into exceptional exits.
-        return true;
-    }
-
     if (!varDsc->lvTracked && !varDsc->lvInSsa)
     {
         // We do not have liveness we can use for this untracked local.
+        return true;
+    }
+
+    if (varDsc->lvTracked && varDsc->IsLiveInOutOfHandler())
+    {
+        // The local is live into an EH handler (an exceptional exit). The
+        // regular exit blocks visited below do not include handlers, and we
+        // use this as a cheap alternative to checking all EH successors
+        // of all blocks in the loop.
         return true;
     }
 
@@ -1357,6 +1360,27 @@ bool Compiler::optLocalHasNonLoopUses(unsigned lclNum, FlowGraphNaturalLoop* loo
         // (and whether it doesn't extend their lifetimes too much).
         return true;
     }
+
+#ifdef DEBUG
+    // We have concluded that the local has no uses outside the loop. In
+    // particular it must not be live into any exceptional exit; the
+    // IsLiveInOutOfHandler check above is a cheap conservative alternative to
+    // checking all EH successors of all blocks in the loop, so verify here that
+    // it was sufficient.
+    loop->VisitLoopBlocks([=](BasicBlock* block) {
+        block->VisitAllSuccs(this, [=](BasicBlock* succ) {
+            if (!loop->ContainsBlock(succ) && bbIsHandlerBeg(succ))
+            {
+                assert(!optLocalIsLiveIntoBlock(lclNum, succ) &&
+                       "Local concluded to have no non-loop uses is live into exceptional exit");
+            }
+
+            return BasicBlockVisit::Continue;
+        });
+
+        return BasicBlockVisit::Continue;
+    });
+#endif
 
     return false;
 }
