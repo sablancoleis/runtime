@@ -2677,8 +2677,8 @@ public sealed unsafe partial class DacDbiImpl : IDacDbiInterface
             uint metadataToken = ReadLittleEndian(pEnCFieldInfo->objectTypeData.metadataToken);
             uint fldToken = pEnCFieldInfo->fldToken;
 
-            // Look up the type to confirm class is loaded
-            TypeHandle typeHandle = LookupTypeDefOrRefInAssembly(rts, vmAssembly, metadataToken);
+            // Look up the type to confirm class is loaded (throws CORDBG_E_CLASS_NOT_LOADED if not)
+            _ = LookupTypeDefOrRefInAssembly(rts, vmAssembly, metadataToken);
 
             // Find the FieldDesc by token via the module's FieldDefToDesc map
             Contracts.ModuleHandle moduleHandle = loader.GetModuleHandleFromAssemblyPtr(new TargetPointer(vmAssembly));
