@@ -101,8 +101,6 @@ internal readonly struct RuntimeMutableTypeSystem_1 : IRuntimeMutableTypeSystem
     TargetPointer IRuntimeMutableTypeSystem.GetEnCInstanceFieldAddress(TargetPointer objectAddress, TargetPointer encFieldDescPointer)
     {
         IObject objectContract = _target.Contracts.Object;
-        IGC gcContract = _target.Contracts.GC;
-        IRuntimeTypeSystem rts = _target.Contracts.RuntimeTypeSystem;
 
         // Get the SyncBlock for this object
         TargetPointer syncBlockAddress = objectContract.GetSyncBlockAddress(objectAddress);
@@ -129,12 +127,14 @@ internal readonly struct RuntimeMutableTypeSystem_1 : IRuntimeMutableTypeSystem
                 if (handleAddress == TargetPointer.Null)
                     return TargetPointer.Null;
 
+                IGC gcContract = _target.Contracts.GC;
                 TargetNUInt secondary = gcContract.GetHandleExtraInfo(handleAddress);
                 TargetPointer helperObjectAddress = new TargetPointer(secondary.Value);
                 if (helperObjectAddress == TargetPointer.Null)
                     return TargetPointer.Null;
 
                 // Get the _objectReference field of the EditAndContinueHelper
+                IRuntimeTypeSystem rts = _target.Contracts.RuntimeTypeSystem;
                 TargetPointer helperMT = objectContract.GetMethodTableAddress(helperObjectAddress);
                 TypeHandle helperTypeHandle = rts.GetTypeHandle(helperMT);
                 TargetPointer objectReferenceFieldDesc = rts.GetFieldDescByName(helperTypeHandle, "_objectReference");

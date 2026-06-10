@@ -233,4 +233,304 @@ public class RuntimeMutableTypeSystemTests
         ulong[] expected = instanceElems.Select(e => e.Address + fieldDescOffset).ToArray();
         Assert.Equal(expected, contract.EnumerateAddedFieldDescs(th, staticFields: false).Select(p => (ulong)p).ToArray());
     }
+
+    #region DoesEnCFieldDescNeedFixup tests
+
+    [Theory]
+    [ClassData(typeof(MockTarget.StdArch))]
+    public void DoesEnCFieldDescNeedFixup_True(MockTarget.Architecture arch)
+    {
+        var helpers = new TargetTestHelpers(arch);
+        var memBuilder = new MockMemorySpace.Builder(helpers);
+        var allocator = memBuilder.CreateAllocator(0x0010_0000, 0x0020_0000);
+
+        // EnCFieldDesc layout: NeedsFixup (int32) + StaticFieldData (pointer)
+        var encFieldDescLayout = new SequentialLayoutBuilder("EnCFieldDesc", arch)
+            .AddUInt32Field(nameof(Data.EnCFieldDesc.NeedsFixup))
+            .AddPointerField(nameof(Data.EnCFieldDesc.StaticFieldData))
+            .Build();
+
+        var fragment = allocator.Allocate((ulong)encFieldDescLayout.Size, "EnCFieldDesc");
+        // Write NeedsFixup = 1
+        helpers.Write(fragment.Data.AsSpan(encFieldDescLayout.GetField(nameof(Data.EnCFieldDesc.NeedsFixup)).Offset, sizeof(int)), 1);
+        // StaticFieldData = Null
+        helpers.WritePointer(fragment.Data.AsSpan(encFieldDescLayout.GetField(nameof(Data.EnCFieldDesc.StaticFieldData)).Offset, helpers.PointerSize), 0);
+
+        var types = new Dictionary<DataType, Target.TypeInfo>
+        {
+            [DataType.EnCFieldDesc] = TargetTestHelpers.CreateTypeInfo(encFieldDescLayout),
+        };
+
+        var target = new TestPlaceholderTarget.Builder(arch)
+            .UseReader(memBuilder.GetMemoryContext().ReadFromTarget)
+            .AddTypes(types)
+            .AddContract<IRuntimeMutableTypeSystem>(version: EnCContractVersion)
+            .Build();
+
+        IRuntimeMutableTypeSystem contract = target.Contracts.RuntimeMutableTypeSystem;
+        Assert.True(contract.DoesEnCFieldDescNeedFixup(new TargetPointer(fragment.Address)));
+    }
+
+    [Theory]
+    [ClassData(typeof(MockTarget.StdArch))]
+    public void DoesEnCFieldDescNeedFixup_False(MockTarget.Architecture arch)
+    {
+        var helpers = new TargetTestHelpers(arch);
+        var memBuilder = new MockMemorySpace.Builder(helpers);
+        var allocator = memBuilder.CreateAllocator(0x0010_0000, 0x0020_0000);
+
+        var encFieldDescLayout = new SequentialLayoutBuilder("EnCFieldDesc", arch)
+            .AddUInt32Field(nameof(Data.EnCFieldDesc.NeedsFixup))
+            .AddPointerField(nameof(Data.EnCFieldDesc.StaticFieldData))
+            .Build();
+
+        var fragment = allocator.Allocate((ulong)encFieldDescLayout.Size, "EnCFieldDesc");
+        // Write NeedsFixup = 0
+        helpers.Write(fragment.Data.AsSpan(encFieldDescLayout.GetField(nameof(Data.EnCFieldDesc.NeedsFixup)).Offset, sizeof(int)), 0);
+        helpers.WritePointer(fragment.Data.AsSpan(encFieldDescLayout.GetField(nameof(Data.EnCFieldDesc.StaticFieldData)).Offset, helpers.PointerSize), 0);
+
+        var types = new Dictionary<DataType, Target.TypeInfo>
+        {
+            [DataType.EnCFieldDesc] = TargetTestHelpers.CreateTypeInfo(encFieldDescLayout),
+        };
+
+        var target = new TestPlaceholderTarget.Builder(arch)
+            .UseReader(memBuilder.GetMemoryContext().ReadFromTarget)
+            .AddTypes(types)
+            .AddContract<IRuntimeMutableTypeSystem>(version: EnCContractVersion)
+            .Build();
+
+        IRuntimeMutableTypeSystem contract = target.Contracts.RuntimeMutableTypeSystem;
+        Assert.False(contract.DoesEnCFieldDescNeedFixup(new TargetPointer(fragment.Address)));
+    }
+
+    #endregion
+
+    #region GetEnCStaticFieldDataAddress tests
+
+    [Theory]
+    [ClassData(typeof(MockTarget.StdArch))]
+    public void GetEnCStaticFieldDataAddress_NullStaticFieldData_ReturnsNull(MockTarget.Architecture arch)
+    {
+        var helpers = new TargetTestHelpers(arch);
+        var memBuilder = new MockMemorySpace.Builder(helpers);
+        var allocator = memBuilder.CreateAllocator(0x0010_0000, 0x0020_0000);
+
+        var encFieldDescLayout = new SequentialLayoutBuilder("EnCFieldDesc", arch)
+            .AddUInt32Field(nameof(Data.EnCFieldDesc.NeedsFixup))
+            .AddPointerField(nameof(Data.EnCFieldDesc.StaticFieldData))
+            .Build();
+
+        var fragment = allocator.Allocate((ulong)encFieldDescLayout.Size, "EnCFieldDesc");
+        helpers.Write(fragment.Data.AsSpan(encFieldDescLayout.GetField(nameof(Data.EnCFieldDesc.NeedsFixup)).Offset, sizeof(int)), 0);
+        // StaticFieldData = Null
+        helpers.WritePointer(fragment.Data.AsSpan(encFieldDescLayout.GetField(nameof(Data.EnCFieldDesc.StaticFieldData)).Offset, helpers.PointerSize), 0);
+
+        var types = new Dictionary<DataType, Target.TypeInfo>
+        {
+            [DataType.EnCFieldDesc] = TargetTestHelpers.CreateTypeInfo(encFieldDescLayout),
+        };
+
+        var target = new TestPlaceholderTarget.Builder(arch)
+            .UseReader(memBuilder.GetMemoryContext().ReadFromTarget)
+            .AddTypes(types)
+            .AddContract<IRuntimeMutableTypeSystem>(version: EnCContractVersion)
+            .Build();
+
+        IRuntimeMutableTypeSystem contract = target.Contracts.RuntimeMutableTypeSystem;
+        Assert.Equal(TargetPointer.Null, contract.GetEnCStaticFieldDataAddress(new TargetPointer(fragment.Address)));
+    }
+
+    [Theory]
+    [ClassData(typeof(MockTarget.StdArch))]
+    public void GetEnCStaticFieldDataAddress_ReturnsFieldDataAddress(MockTarget.Architecture arch)
+    {
+        var helpers = new TargetTestHelpers(arch);
+        var memBuilder = new MockMemorySpace.Builder(helpers);
+        var allocator = memBuilder.CreateAllocator(0x0010_0000, 0x0020_0000);
+
+        // EnCAddedStaticField layout: FieldDesc (pointer) + FieldData (pointer-sized blob)
+        // FieldData uses [FieldAddress], so the contract returns the address of the FieldData field itself.
+        var encAddedStaticFieldLayout = new SequentialLayoutBuilder("EnCAddedStaticField", arch)
+            .AddPointerField(nameof(Data.EnCAddedStaticField.FieldDesc))
+            .AddPointerField(nameof(Data.EnCAddedStaticField.FieldData))
+            .Build();
+
+        var encFieldDescLayout = new SequentialLayoutBuilder("EnCFieldDesc", arch)
+            .AddUInt32Field(nameof(Data.EnCFieldDesc.NeedsFixup))
+            .AddPointerField(nameof(Data.EnCFieldDesc.StaticFieldData))
+            .Build();
+
+        // Allocate EnCAddedStaticField
+        var staticFieldFragment = allocator.Allocate((ulong)encAddedStaticFieldLayout.Size, "EnCAddedStaticField");
+        helpers.WritePointer(staticFieldFragment.Data.AsSpan(encAddedStaticFieldLayout.GetField(nameof(Data.EnCAddedStaticField.FieldDesc)).Offset, helpers.PointerSize), 0xABCD_0000);
+        // FieldData content doesn't matter - we want the address of the field itself
+        helpers.WritePointer(staticFieldFragment.Data.AsSpan(encAddedStaticFieldLayout.GetField(nameof(Data.EnCAddedStaticField.FieldData)).Offset, helpers.PointerSize), 0x1234_5678);
+
+        // Allocate EnCFieldDesc pointing to the static field
+        var fieldDescFragment = allocator.Allocate((ulong)encFieldDescLayout.Size, "EnCFieldDesc");
+        helpers.Write(fieldDescFragment.Data.AsSpan(encFieldDescLayout.GetField(nameof(Data.EnCFieldDesc.NeedsFixup)).Offset, sizeof(int)), 0);
+        helpers.WritePointer(fieldDescFragment.Data.AsSpan(encFieldDescLayout.GetField(nameof(Data.EnCFieldDesc.StaticFieldData)).Offset, helpers.PointerSize), staticFieldFragment.Address);
+
+        var types = new Dictionary<DataType, Target.TypeInfo>
+        {
+            [DataType.EnCFieldDesc] = TargetTestHelpers.CreateTypeInfo(encFieldDescLayout),
+            [DataType.EnCAddedStaticField] = TargetTestHelpers.CreateTypeInfo(encAddedStaticFieldLayout),
+        };
+
+        var target = new TestPlaceholderTarget.Builder(arch)
+            .UseReader(memBuilder.GetMemoryContext().ReadFromTarget)
+            .AddTypes(types)
+            .AddContract<IRuntimeMutableTypeSystem>(version: EnCContractVersion)
+            .Build();
+
+        IRuntimeMutableTypeSystem contract = target.Contracts.RuntimeMutableTypeSystem;
+        TargetPointer result = contract.GetEnCStaticFieldDataAddress(new TargetPointer(fieldDescFragment.Address));
+
+        // The [FieldAddress] attribute means it returns the address of the FieldData field
+        ulong expectedAddress = staticFieldFragment.Address + (ulong)encAddedStaticFieldLayout.GetField(nameof(Data.EnCAddedStaticField.FieldData)).Offset;
+        Assert.Equal(new TargetPointer(expectedAddress), result);
+    }
+
+    #endregion
+
+    #region GetEnCInstanceFieldAddress tests
+
+    [Theory]
+    [ClassData(typeof(MockTarget.StdArch))]
+    public void GetEnCInstanceFieldAddress_NullSyncBlock_ReturnsNull(MockTarget.Architecture arch)
+    {
+        var helpers = new TargetTestHelpers(arch);
+        var memBuilder = new MockMemorySpace.Builder(helpers);
+
+        var types = new Dictionary<DataType, Target.TypeInfo>();
+
+        TargetPointer objectAddr = new TargetPointer(0x5000_0000);
+        TargetPointer fieldDescAddr = new TargetPointer(0x6000_0000);
+
+        var mockObject = new Mock<IObject>();
+        mockObject.Setup(o => o.GetSyncBlockAddress(objectAddr)).Returns(TargetPointer.Null);
+
+        var target = new TestPlaceholderTarget.Builder(arch)
+            .UseReader(memBuilder.GetMemoryContext().ReadFromTarget)
+            .AddTypes(types)
+            .AddContract<IRuntimeMutableTypeSystem>(version: EnCContractVersion)
+            .AddMockContract(mockObject)
+            .Build();
+
+        IRuntimeMutableTypeSystem contract = target.Contracts.RuntimeMutableTypeSystem;
+        Assert.Equal(TargetPointer.Null, contract.GetEnCInstanceFieldAddress(objectAddr, fieldDescAddr));
+    }
+
+    [Theory]
+    [ClassData(typeof(MockTarget.StdArch))]
+    public void GetEnCInstanceFieldAddress_NoEnCInfo_ReturnsNull(MockTarget.Architecture arch)
+    {
+        var helpers = new TargetTestHelpers(arch);
+        var memBuilder = new MockMemorySpace.Builder(helpers);
+        var allocator = memBuilder.CreateAllocator(0x0010_0000, 0x0020_0000);
+
+        // SyncBlock layout without EnCInfo field
+        var syncBlockLayout = new SequentialLayoutBuilder("SyncBlock", arch)
+            .AddUInt32Field(nameof(Data.SyncBlock.ThinLock))
+            .AddPointerField(nameof(Data.SyncBlock.LinkNext))
+            .AddUInt32Field(nameof(Data.SyncBlock.HashCode))
+            .AddPointerField("InteropInfo")
+            .AddPointerField("Lock")
+            .Build();
+
+        var syncBlockFragment = allocator.Allocate((ulong)syncBlockLayout.Size, "SyncBlock");
+        // Zero out the fragment
+        syncBlockFragment.Data.AsSpan().Clear();
+
+        var types = new Dictionary<DataType, Target.TypeInfo>
+        {
+            [DataType.SyncBlock] = TargetTestHelpers.CreateTypeInfo(syncBlockLayout),
+        };
+
+        TargetPointer objectAddr = new TargetPointer(0x5000_0000);
+        TargetPointer fieldDescAddr = new TargetPointer(0x6000_0000);
+
+        var mockObject = new Mock<IObject>();
+        mockObject.Setup(o => o.GetSyncBlockAddress(objectAddr)).Returns(new TargetPointer(syncBlockFragment.Address));
+
+        var target = new TestPlaceholderTarget.Builder(arch)
+            .UseReader(memBuilder.GetMemoryContext().ReadFromTarget)
+            .AddTypes(types)
+            .AddContract<IRuntimeMutableTypeSystem>(version: EnCContractVersion)
+            .AddMockContract(mockObject)
+            .Build();
+
+        IRuntimeMutableTypeSystem contract = target.Contracts.RuntimeMutableTypeSystem;
+        Assert.Equal(TargetPointer.Null, contract.GetEnCInstanceFieldAddress(objectAddr, fieldDescAddr));
+    }
+
+    [Theory]
+    [ClassData(typeof(MockTarget.StdArch))]
+    public void GetEnCInstanceFieldAddress_FieldDescNotInList_ReturnsNull(MockTarget.Architecture arch)
+    {
+        var helpers = new TargetTestHelpers(arch);
+        var memBuilder = new MockMemorySpace.Builder(helpers);
+        var allocator = memBuilder.CreateAllocator(0x0010_0000, 0x0020_0000);
+
+        // Layout definitions
+        var syncBlockLayout = new SequentialLayoutBuilder("SyncBlock", arch)
+            .AddUInt32Field(nameof(Data.SyncBlock.ThinLock))
+            .AddPointerField(nameof(Data.SyncBlock.LinkNext))
+            .AddUInt32Field(nameof(Data.SyncBlock.HashCode))
+            .AddPointerField("InteropInfo")
+            .AddPointerField("Lock")
+            .AddPointerField("EnCInfo")
+            .Build();
+
+        var encSyncBlockInfoLayout = new SequentialLayoutBuilder("EnCSyncBlockInfo", arch)
+            .AddPointerField(nameof(Data.EnCSyncBlockInfo.List))
+            .Build();
+
+        var encAddedFieldLayout = new SequentialLayoutBuilder("EnCAddedField", arch)
+            .AddPointerField(nameof(Data.EnCAddedField.Next))
+            .AddPointerField(nameof(Data.EnCAddedField.FieldDesc))
+            .AddPointerField(nameof(Data.EnCAddedField.FieldData))
+            .Build();
+
+        // Create an EnCAddedField entry with a different FieldDesc
+        var encAddedFieldFragment = allocator.Allocate((ulong)encAddedFieldLayout.Size, "EnCAddedField");
+        helpers.WritePointer(encAddedFieldFragment.Data.AsSpan(encAddedFieldLayout.GetField(nameof(Data.EnCAddedField.Next)).Offset, helpers.PointerSize), 0); // end of list
+        helpers.WritePointer(encAddedFieldFragment.Data.AsSpan(encAddedFieldLayout.GetField(nameof(Data.EnCAddedField.FieldDesc)).Offset, helpers.PointerSize), 0xDEAD_0000); // different FieldDesc
+        helpers.WritePointer(encAddedFieldFragment.Data.AsSpan(encAddedFieldLayout.GetField(nameof(Data.EnCAddedField.FieldData)).Offset, helpers.PointerSize), 0);
+
+        // Create EnCSyncBlockInfo pointing to the field list
+        var encSyncBlockInfoFragment = allocator.Allocate((ulong)encSyncBlockInfoLayout.Size, "EnCSyncBlockInfo");
+        helpers.WritePointer(encSyncBlockInfoFragment.Data.AsSpan(encSyncBlockInfoLayout.GetField(nameof(Data.EnCSyncBlockInfo.List)).Offset, helpers.PointerSize), encAddedFieldFragment.Address);
+
+        // Create SyncBlock with EnCInfo
+        var syncBlockFragment = allocator.Allocate((ulong)syncBlockLayout.Size, "SyncBlock");
+        syncBlockFragment.Data.AsSpan().Clear();
+        helpers.WritePointer(syncBlockFragment.Data.AsSpan(syncBlockLayout.GetField("EnCInfo").Offset, helpers.PointerSize), encSyncBlockInfoFragment.Address);
+
+        var types = new Dictionary<DataType, Target.TypeInfo>
+        {
+            [DataType.SyncBlock] = TargetTestHelpers.CreateTypeInfo(syncBlockLayout),
+            [DataType.EnCSyncBlockInfo] = TargetTestHelpers.CreateTypeInfo(encSyncBlockInfoLayout),
+            [DataType.EnCAddedField] = TargetTestHelpers.CreateTypeInfo(encAddedFieldLayout),
+        };
+
+        TargetPointer objectAddr = new TargetPointer(0x5000_0000);
+        TargetPointer fieldDescAddr = new TargetPointer(0x6000_0000); // Not in the list
+
+        var mockObject = new Mock<IObject>();
+        mockObject.Setup(o => o.GetSyncBlockAddress(objectAddr)).Returns(new TargetPointer(syncBlockFragment.Address));
+
+        var target = new TestPlaceholderTarget.Builder(arch)
+            .UseReader(memBuilder.GetMemoryContext().ReadFromTarget)
+            .AddTypes(types)
+            .AddContract<IRuntimeMutableTypeSystem>(version: EnCContractVersion)
+            .AddMockContract(mockObject)
+            .Build();
+
+        IRuntimeMutableTypeSystem contract = target.Contracts.RuntimeMutableTypeSystem;
+        Assert.Equal(TargetPointer.Null, contract.GetEnCInstanceFieldAddress(objectAddr, fieldDescAddr));
+    }
+
+    #endregion
 }
