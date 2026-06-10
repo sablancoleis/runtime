@@ -229,6 +229,9 @@ CDAC_TYPE_FIELD(SyncBlock, TYPE(ObjectHandle), Lock, cdac_data<SyncBlock>::Lock)
 CDAC_TYPE_FIELD(SyncBlock, T_UINT32, ThinLock, cdac_data<SyncBlock>::ThinLock)
 CDAC_TYPE_FIELD(SyncBlock, T_POINTER, LinkNext, cdac_data<SyncBlock>::LinkNext)
 CDAC_TYPE_FIELD(SyncBlock, T_UINT32, HashCode, cdac_data<SyncBlock>::HashCode)
+#ifdef FEATURE_METADATA_UPDATER
+CDAC_TYPE_FIELD(SyncBlock, T_POINTER, EnCInfo, cdac_data<SyncBlock>::EnCInfo)
+#endif // FEATURE_METADATA_UPDATER
 CDAC_TYPE_END(SyncBlock)
 
 
@@ -322,6 +325,30 @@ CDAC_TYPE_INDETERMINATE(EnCAddedFieldElement)
 CDAC_TYPE_FIELD(EnCAddedFieldElement, T_POINTER, Next, cdac_data<EnCAddedFieldElement>::Next)
 CDAC_TYPE_FIELD(EnCAddedFieldElement, T_POINTER, FieldDesc, cdac_data<EnCAddedFieldElement>::FieldDesc)
 CDAC_TYPE_END(EnCAddedFieldElement)
+
+CDAC_TYPE_BEGIN(EnCFieldDesc)
+CDAC_TYPE_INDETERMINATE(EnCFieldDesc)
+CDAC_TYPE_FIELD(EnCFieldDesc, T_INT32, NeedsFixup, cdac_data<EnCFieldDesc>::NeedsFixup)
+CDAC_TYPE_FIELD(EnCFieldDesc, T_POINTER, StaticFieldData, cdac_data<EnCFieldDesc>::StaticFieldData)
+CDAC_TYPE_END(EnCFieldDesc)
+
+CDAC_TYPE_BEGIN(EnCAddedField)
+CDAC_TYPE_INDETERMINATE(EnCAddedField)
+CDAC_TYPE_FIELD(EnCAddedField, T_POINTER, Next, cdac_data<EnCAddedField>::Next)
+CDAC_TYPE_FIELD(EnCAddedField, T_POINTER, FieldDesc, cdac_data<EnCAddedField>::FieldDesc)
+CDAC_TYPE_FIELD(EnCAddedField, TYPE(ObjectHandle), FieldData, cdac_data<EnCAddedField>::FieldData)
+CDAC_TYPE_END(EnCAddedField)
+
+CDAC_TYPE_BEGIN(EnCAddedStaticField)
+CDAC_TYPE_INDETERMINATE(EnCAddedStaticField)
+CDAC_TYPE_FIELD(EnCAddedStaticField, T_POINTER, FieldDesc, cdac_data<EnCAddedStaticField>::FieldDesc)
+CDAC_TYPE_FIELD(EnCAddedStaticField, T_UINT8, FieldData, cdac_data<EnCAddedStaticField>::FieldData)
+CDAC_TYPE_END(EnCAddedStaticField)
+
+CDAC_TYPE_BEGIN(EnCSyncBlockInfo)
+CDAC_TYPE_INDETERMINATE(EnCSyncBlockInfo)
+CDAC_TYPE_FIELD(EnCSyncBlockInfo, T_POINTER, List, cdac_data<EnCSyncBlockInfo>::List)
+CDAC_TYPE_END(EnCSyncBlockInfo)
 #endif // FEATURE_METADATA_UPDATER
 
 CDAC_TYPE_BEGIN(ModuleLookupMap)
